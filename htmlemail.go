@@ -232,6 +232,19 @@ func (t *Template) ProcessConditionals() (string, error) {
 	return content, nil
 }
 
+// RenderSafe renders the template and ignores missing placeholders (similar to EmailTemplate.RenderSafe).
+func (t *Template) RenderSafe() string {
+	content := t.content
+
+	for key, value := range t.variables {
+		placeholder := "$" + key + "$"
+		stringValue := convertToString(value)
+		content = strings.ReplaceAll(content, placeholder, stringValue)
+	}
+
+	return content
+}
+
 // EmailBuilder methods
 
 // SetHTML sets the base HTML content for the email.
@@ -312,6 +325,9 @@ func (eb *EmailBuilder) Build() (string, error) {
 
 	// Replace placeholders
 	for key, value := range eb.data {
+		if key == "minify" {
+			continue // Skip the minify flag
+		}
 		placeholder := "$" + key + "$"
 		stringValue := convertToString(value)
 		html = strings.ReplaceAll(html, placeholder, stringValue)
@@ -327,6 +343,11 @@ func (eb *EmailBuilder) Build() (string, error) {
 			// Add CSS to head
 			html = addCSSToHead(html, cssContent)
 		}
+	}
+
+	// Apply minification if enabled
+	if minify, ok := eb.data["minify"].(bool); ok && minify {
+		html = MinifyHTML(html)
 	}
 
 	return html, nil
@@ -745,6 +766,129 @@ func BuildHTMLTable(data []map[string]interface{}, options TableOptions) string 
 
 	html.WriteString(`</table>` + "\n")
 	return html.String()
+}
+
+// MinifyHTML removes unnecessary whitespace and comments from HTML content.
+// It preserves whitespace in <pre>, <textarea>, and <script> tags.
+func MinifyHTML(html string) string {
+	if html == "" {
+		return html
+	}
+
+	// Remove HTML comments (but preserve conditional comments for IE)
+	// First, temporarily replace conditional comments
+	html = strings.ReplaceAll(html, "<!--[if", "___CONDITIONAL_COMMENT_START___")
+	html = strings.ReplaceAll(html, "<![endif]-->", "___CONDITIONAL_COMMENT_END___")
+
+	// Remove regular comments
+	html = regexp.MustCompile(`(?s)<!--.*?-->`).ReplaceAllString(html, "")
+
+	// Restore conditional comments
+	html = strings.ReplaceAll(html, "___CONDITIONAL_COMMENT_START___", "<!--[if")
+	html = strings.ReplaceAll(html, "___CONDITIONAL_COMMENT_END___", "<![endif]-->")
+
+	// Preserve content inside specific tags
+	preserveTags := []string{"pre", "textarea", "script", "style"}
+	preservedContent := make(map[string]string)
+	preserveCounter := 0
+
+	for _, tag := range preserveTags {
+		preserveRegex := regexp.MustCompile(`(?si)<` + tag + `[^>]*>(.*?)</` + tag + `>`)
+		html = preserveRegex.ReplaceAllStringFunc(html, func(match string) string {
+			placeholder := fmt.Sprintf("___PRESERVE_%d___", preserveCounter)
+			preservedContent[placeholder] = match
+			preserveCounter++
+			return placeholder
+		})
+	}
+
+	// Remove leading/trailing whitespace from each line
+	lines := strings.Split(html, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimSpace(line)
+	}
+	html = strings.Join(lines, "\n")
+
+	// Remove empty lines
+	html = regexp.MustCompile(`(?m)^\s*$`).ReplaceAllString(html, "")
+
+	// Remove whitespace between tags
+	html = regexp.MustCompile(`>\s+<`).ReplaceAllString(html, "><")
+
+	// Collapse multiple spaces into single space (in text content, but not in attributes)
+	html = regexp.MustCompile(`\s{2,}`).ReplaceAllStringFunc(html, func(match string) string {
+		// Don't collapse spaces that are inside preserved content placeholders
+		if strings.Contains(match, "___PRESERVE_") {
+			return match
+		}
+		return " "
+	})
+
+	// Remove spaces around equals signs in attributes
+	html = regexp.MustCompile(`\s*=\s*`).ReplaceAllString(html, "=")
+
+	// Remove trailing spaces before closing tags
+	html = regexp.MustCompile(`\s+>`).ReplaceAllString(html, ">")
+
+	// Remove leading spaces after opening tags
+	html = regexp.MustCompile(`<\s+`).ReplaceAllString(html, "<")
+
+	// Restore preserved content
+	for placeholder, content := range preservedContent {
+		html = strings.Replace(html, placeholder, content, 1)
+	}
+
+	return strings.TrimSpace(html)
+}
+
+// Template methods for minification
+
+// RenderMinified renders the template and minifies the output HTML.
+func (t *Template) RenderMinified() (string, error) {
+	content, err := t.Render()
+	if err != nil {
+		return "", err
+	}
+	return MinifyHTML(content), nil
+}
+
+// RenderWithStyleMinified renders the template with a specific style and minifies the output.
+func (t *Template) RenderWithStyleMinified(style PlaceholderStyle) (string, error) {
+	content, err := t.RenderWithStyle(style)
+	if err != nil {
+		return "", err
+	}
+	return MinifyHTML(content), nil
+}
+
+// RenderSafeMinified renders the template safely (ignoring unresolved placeholders) and minifies the output.
+func (t *Template) RenderSafeMinified() string {
+	content := t.RenderSafe()
+	return MinifyHTML(content)
+}
+
+// RenderWithGoTemplateMinified renders using Go templates and minifies the output.
+func (t *Template) RenderWithGoTemplateMinified() (string, error) {
+	content, err := t.RenderWithGoTemplate()
+	if err != nil {
+		return "", err
+	}
+	return MinifyHTML(content), nil
+}
+
+// EmailBuilder methods for minification
+
+// EnableMinification enables HTML minification for the final output.
+func (eb *EmailBuilder) EnableMinification() *EmailBuilder {
+	// We can add a flag to track minification preference
+	eb.data["minify"] = true
+	return eb
+}
+
+// DisableMinification disables HTML minification for the final output.
+func (eb *EmailBuilder) DisableMinification() *EmailBuilder {
+	eb.data["minify"] = false
+	return eb
 }
 
 // BuildFixedStyledHTMLTable creates an HTML table with your specific styling for date/rate_type/amount data.

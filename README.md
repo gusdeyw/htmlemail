@@ -245,6 +245,39 @@ html, err := template.RenderWithStyle(htmlemail.BraceStyle) // {{variable}}
 html, err := template.RenderPartial([]string{"name", "email"})
 ```
 
+### HTML Minification
+
+Reduce HTML size by removing unnecessary whitespace and comments:
+
+```go
+// Minify standalone HTML
+minifiedHTML := htmlemail.MinifyHTML(`<html>  <body>  <h1>Hello World</h1>  </body>  </html>`)
+// Result: <html><body><h1>Hello World</h1></body></html>
+
+// Render template and minify output
+html, err := template.RenderMinified()
+
+// Render with specific style and minify
+html, err := template.RenderWithStyleMinified(htmlemail.BraceStyle)
+
+// Render safely and minify
+html := template.RenderSafeMinified()
+
+// Render with Go templates and minify
+html, err := template.RenderWithGoTemplateMinified()
+```
+
+#### EmailBuilder with Minification
+
+```go
+html, err := htmlemail.NewEmailBuilder().
+    SetHTML("<html>  <body>  <h1>$title$</h1>  </body>  </html>").
+    SetData("title", "Welcome").
+    EnableMinification(). // Enable HTML minification
+    Build()
+// Result: <html><body><h1>Welcome</h1></body></html>
+```
+
 ### Advanced EmailBuilder
 
 For complex emails with CSS and advanced features:
@@ -491,6 +524,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [x] ~~Struct-based template population~~ ✅  
 - [x] ~~Go template engine integration~~ ✅
 - [x] ~~CSS integration and inlining~~ ✅
+- [x] ~~HTML minification~~ ✅
 - [ ] Email template library/gallery
 - [ ] HTML minification
 - [ ] Template inheritance/layout system
