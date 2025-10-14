@@ -566,3 +566,194 @@ func TestBuildHTMLTableWithCustomStyles(t *testing.T) {
 		t.Error("Result should contain custom cell style")
 	}
 }
+
+func TestMinifyHTML(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "simple HTML",
+			input:    "<html>  <body>  <h1>Hello</h1>  </body>  </html>",
+			expected: "<html><body><h1>Hello</h1></body></html>",
+		},
+		{
+			name:     "remove comments",
+			input:    "<!-- comment --><div>Hello</div>",
+			expected: "<div>Hello</div>",
+		},
+		{
+			name:     "preserve conditional comments",
+			input:    "<!--[if IE]><div>IE only</div><![endif]--><div>All browsers</div>",
+			expected: "<!--[if IE]><div>IE only</div><![endif]--><div>All browsers</div>",
+		},
+		{
+			name:     "preserve pre content",
+			input:    "<pre>  formatted\n  text  </pre>",
+			expected: "<pre>  formatted\n  text  </pre>",
+		},
+		{
+			name:     "preserve textarea content",
+			input:    "<textarea>  user\n  input  </textarea>",
+			expected: "<textarea>  user\n  input  </textarea>",
+		},
+		{
+			name:     "preserve script content",
+			input:    "<script>  var x = 1;\n  console.log(x);  </script>",
+			expected: "<script>  var x = 1;\n  console.log(x);  </script>",
+		},
+		{
+			name:     "collapse multiple spaces",
+			input:    "<p>Hello   world</p>",
+			expected: "<p>Hello world</p>",
+		},
+		{
+			name:     "remove spaces around equals",
+			input:    `<input type="text" name="test" value="123">`,
+			expected: `<input type="text" name="test" value="123">`,
+		},
+		{
+			name: "complex HTML",
+			input: `<!DOCTYPE html>
+<html>
+<head>
+    <title>Test</title>
+</head>
+<body>
+    <!-- This is a comment -->
+    <h1>  Hello   World  </h1>
+    <p>This is a <strong>test</strong> paragraph.</p>
+    <pre>
+        Preserved formatting
+        with multiple lines
+    </pre>
+</body>
+</html>`,
+			expected: `<!DOCTYPE html><html><head><title>Test</title></head><body><h1> Hello World </h1><p>This is a <strong>test</strong> paragraph.</p>
+<pre>
+        Preserved formatting
+        with multiple lines
+    </pre>
+</body></html>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := MinifyHTML(tt.input)
+			if result != tt.expected {
+				t.Errorf("MinifyHTML() = %q, expected %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestTemplateRenderMinified(t *testing.T) {
+	template := LoadTemplateFromString("<html>  <body>  <h1>Hello $name$</h1>  <p>Welcome!</p>  </body>  </html>")
+	template.SetVariable("name", "World")
+
+	result, err := template.RenderMinified()
+	if err != nil {
+		t.Fatalf("RenderMinified() error = %v", err)
+	}
+
+	expected := "<html><body><h1>Hello World</h1><p>Welcome!</p></body></html>"
+	if result != expected {
+		t.Errorf("RenderMinified() = %q, expected %q", result, expected)
+	}
+}
+
+func TestTemplateRenderWithStyleMinified(t *testing.T) {
+	template := LoadTemplateFromString("<html><body><h1>Hello {{name}}</h1><p>Welcome!</p></body></html>")
+	template.SetVariable("name", "World")
+
+	result, err := template.RenderWithStyleMinified(BraceStyle)
+	if err != nil {
+		t.Fatalf("RenderWithStyleMinified() error = %v", err)
+	}
+
+	expected := "<html><body><h1>Hello World</h1><p>Welcome!</p></body></html>"
+	if result != expected {
+		t.Errorf("RenderWithStyleMinified() = %q, expected %q", result, expected)
+	}
+}
+
+func TestTemplateRenderSafeMinified(t *testing.T) {
+	template := LoadTemplateFromString("<html>  <body>  <h1>Hello $name$</h1>  <p>Welcome!</p>  </body>  </html>")
+	template.SetVariable("name", "World")
+
+	result := template.RenderSafeMinified()
+
+	expected := "<html><body><h1>Hello World</h1><p>Welcome!</p></body></html>"
+	if result != expected {
+		t.Errorf("RenderSafeMinified() = %q, expected %q", result, expected)
+	}
+}
+
+func TestTemplateRenderWithGoTemplateMinified(t *testing.T) {
+	template := LoadTemplateFromString("<html><body><h1>Hello {{.Name}}</h1><p>Welcome!</p></body></html>")
+	template.SetVariable("Name", "World")
+
+	result, err := template.RenderWithGoTemplateMinified()
+	if err != nil {
+		t.Fatalf("RenderWithGoTemplateMinified() error = %v", err)
+	}
+
+	expected := "<html><body><h1>Hello World</h1><p>Welcome!</p></body></html>"
+	if result != expected {
+		t.Errorf("RenderWithGoTemplateMinified() = %q, expected %q", result, expected)
+	}
+}
+
+func TestEmailBuilderEnableMinification(t *testing.T) {
+	builder := NewEmailBuilder().
+		SetHTML("<html>  <body>  <h1>Hello $name$</h1>  </body>  </html>").
+		SetData("name", "World").
+		EnableMinification()
+
+	result, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	expected := "<html><body><h1>Hello World</h1></body></html>"
+	if result != expected {
+		t.Errorf("Build() with minification = %q, expected %q", result, expected)
+	}
+}
+
+func TestEmailBuilderDisableMinification(t *testing.T) {
+	builder := NewEmailBuilder().
+		SetHTML("<html>  <body>  <h1>Hello $name$</h1>  </body>  </html>").
+		SetData("name", "World").
+		EnableMinification().
+		DisableMinification()
+
+	result, err := builder.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	// Should not be minified
+	if !strings.Contains(result, "  <body>") {
+		t.Error("Expected unminified HTML with extra spaces")
+	}
+}
+
+func TestTemplateRenderSafe(t *testing.T) {
+	template := LoadTemplateFromString("<h1>Hello $name$</h1><p>$missing$ placeholder</p>")
+	template.SetVariable("name", "World")
+
+	result := template.RenderSafe()
+
+	expected := "<h1>Hello World</h1><p>$missing$ placeholder</p>"
+	if result != expected {
+		t.Errorf("RenderSafe() = %q, expected %q", result, expected)
+	}
+}
