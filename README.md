@@ -496,3 +496,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Template inheritance/layout system
 - [ ] Advanced CSS inlining with external stylesheets
 - [ ] Template debugging and preview tools
+- [ ] Security enhancements (HTML sanitization, CSP headers)
+- [ ] Performance optimizations (template caching, streaming rendering)
+- [ ] Email service integrations (SendGrid, Mailgun, AWS SES)
+- [ ] Internationalization (i18n) support with locale-aware formatting
+- [ ] Accessibility features (alt text validation, semantic HTML checks)
+- [ ] CLI tools for template validation and preview
+- [ ] Plugin system for custom template functions
+- [ ] Monitoring and metrics (rendering performance, error tracking)
+- [ ] IDE integrations (VS Code extension, syntax highlighting)
+- [ ] Advanced table features (sorting, filtering, pagination)
+- [ ] Template versioning and migration tools
+- [ ] Web-based template editor and preview interface
