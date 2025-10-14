@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📚 Documentation
+    url: https://github.com/gusdeyw/go-htmlemail/blob/main/README.md
+    about: Check the README for usage examples and API reference
+  - name: 🤝 Discussions
+    url: https://github.com/gusdeyw/go-htmlemail/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 💬 Community Chat
+    url: https://github.com/gusdeyw/go-htmlemail/discussions
+    about: Join the community discussion for help and collaboration
