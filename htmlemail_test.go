@@ -619,8 +619,8 @@ func TestMinifyHTML(t *testing.T) {
 			expected: `<input type="text" name="test" value="123">`,
 		},
 		{
-			name:     "complex HTML",
-			input:    `<!DOCTYPE html>
+			name: "complex HTML",
+			input: `<!DOCTYPE html>
 <html>
 <head>
     <title>Test</title>
